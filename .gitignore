@@ -68,3 +68,5 @@ vcpkg_installed/
 Testing/
 .cache/
 .vscode/*
+
+sdkconfig.esp32dev
