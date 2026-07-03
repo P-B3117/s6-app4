@@ -127,21 +127,22 @@ static uint8_t decode_manchester(rmt_symbol_word_t *sym)
     return out;
 }
 
+rmt_encoder_handle_t encoder = NULL;
 void send_byte(uint8_t data)
 {
     rmt_symbol_word_t symbols[8];
     encode_manchester(data, symbols);
 
-    rmt_transmit_config_t tx_cfg = {
+    rmt_transmit_config_t cfg = {
         .loop_count = 0,
     };
 
     rmt_transmit(
         tx,
-        NULL,   // no encoder (raw symbols)
+        encoder,   // no encoder (raw symbols)
         symbols,
         sizeof(symbols),
-        &tx_cfg
+        &cfg
     );
 
     rmt_tx_wait_all_done(tx, portMAX_DELAY);
@@ -188,16 +189,32 @@ void receive(uint8_t* buffer, uint8_t start, uint8_t end) {
 
 void bidonTask(void *pvParameters) {
     while(1) {
+        // 1. SEND PREAMBLE (SYNC)
+        send_byte(0xAA);
+        send_byte(0xAA);
         send_byte(0x55);
-        printf("bidontasking : ");
-        if (rx_buffer[0].duration0 != 0 || rx_buffer[0].duration1 != 0) {
-            uint8_t decoded = decode_manchester(rx_buffer);
-            printf("0x%02X", decoded);
-        } else {
-            printf("<no data>");
+        
+        rmt_tx_wait_all_done(tx, portMAX_DELAY);
+
+        int valid_symbols = 0;
+
+        for (int i = 0; i < 64; i++) {
+            if (rx_buffer[i].duration0 == 0 &&
+                rx_buffer[i].duration1 == 0) {
+                break;
+            }
+
+            valid_symbols++;
         }
-        printf("\n");
-        vTaskDelay(pdMS_TO_TICKS(1));
+
+        printf("valid symbols: %d\n", valid_symbols);
+
+        if (valid_symbols >= 8) {
+            uint8_t b = decode_manchester(rx_buffer);
+            printf("decoded: 0x%02X\n", b);
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(500));
     }
 }
 
@@ -207,6 +224,8 @@ void app_main() {
     rmt_enable(tx);
     rmt_enable(rx);
 
+    rmt_copy_encoder_config_t copy_cfg = {};
+    rmt_new_copy_encoder(&copy_cfg, &encoder);
     start_rx();
 
     xTaskCreatePinnedToCore(
