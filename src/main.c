@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <string.h>
 
 #include "crc.h"
 #include "driver/rmt_rx.h"
@@ -44,6 +45,21 @@ rmt_channel_handle_t tx;
 rmt_channel_handle_t rx;
 
 static rmt_symbol_word_t rx_buffer[8];
+static volatile bool rx_done = false;
+
+static bool IRAM_ATTR rmt_rx_done_cb(
+    rmt_channel_handle_t channel,
+    const rmt_rx_done_event_data_t *edata,
+    void *user_data)
+{
+    memcpy(rx_buffer,
+           edata->received_symbols,
+           edata->num_symbols * sizeof(rmt_symbol_word_t));
+
+    rx_done = true;
+
+    return true;
+}
 
 typedef enum {
   debut = 0x01,
@@ -84,7 +100,7 @@ void start_rx(void) {
       .signal_range_min_ns = 100,
       .signal_range_max_ns = 1000000,
   };
-
+  rx_done = false;
   rmt_receive(rx, rx_buffer, sizeof(rx_buffer), &rx_cfg);
 }
 
@@ -191,16 +207,31 @@ void receive(uint8_t *buffer, uint8_t start, uint8_t end) {}
 
 void bidonTask(void *pvParameters) {
   while (1) {
+    rx_done = false;
     send_byte(0x55);
-    printf("bidontasking : ");
-    if (rx_buffer[0].duration0 != 0 || rx_buffer[0].duration1 != 0) {
-      uint8_t decoded = decode_manchester(rx_buffer);
-      printf("0x%02X", decoded);
-    } else {
-      printf("<no data>");
+
+    while (!rx_done) {
+      vTaskDelay(1);
     }
-    printf("\n");
-    vTaskDelay(pdMS_TO_TICKS(1));
+
+    int valid = 0;
+
+    for (int i = 0; i < 64; i++) {
+      if (rx_buffer[i].duration0 == 0 &&
+          rx_buffer[i].duration1 == 0) {
+          break;
+      }
+      valid++;
+    }
+
+    printf("valid symbols: %d\n", valid);
+
+    uint8_t b = decode_manchester(rx_buffer + 4); // skip preamble
+    printf("decoded: 0x%02X\n", b);
+
+    for (int i = 0; i < 8; i++) { printf("rx_buffer[%d]: duration0=%d, duration1=%d, level0=%d, level1=%d\n", i, rx_buffer[i].duration0, rx_buffer[i].duration1, rx_buffer[i].level0, rx_buffer[i].level1); }
+
+    vTaskDelay(pdMS_TO_TICKS(500));
   }
 }
 
@@ -209,6 +240,14 @@ void app_main() {
   rmt_new_tx_channel(&tx_cfg, &tx);
   rmt_enable(tx);
   rmt_enable(rx);
+
+  rmt_rx_event_callbacks_t cbs = {
+      .on_recv_done = rmt_rx_done_cb,
+  };
+  rmt_rx_register_event_callbacks(rx, &cbs, NULL);
+
+  rmt_copy_encoder_config_t encoder_cfg = {};
+  rmt_new_copy_encoder(&encoder_cfg, &encoder);
 
   start_rx();
 
