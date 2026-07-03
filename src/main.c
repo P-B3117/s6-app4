@@ -130,19 +130,6 @@ static uint8_t decode_manchester(rmt_symbol_word_t *sym) {
   return out;
 }
 
-<<<<<<< HEAD
-void send_byte(uint8_t data) {
-  rmt_symbol_word_t symbols[8];
-  encode_manchester(data, symbols);
-
-  rmt_transmit_config_t tx_cfg = {
-      .loop_count = 0,
-  };
-
-  rmt_transmit(tx,
-               NULL, // no encoder (raw symbols)
-               symbols, sizeof(symbols), &tx_cfg);
-=======
 rmt_encoder_handle_t encoder = NULL;
 void send_byte(uint8_t data)
 {
@@ -160,7 +147,6 @@ void send_byte(uint8_t data)
         sizeof(symbols),
         &cfg
     );
->>>>>>> f958dd2ea782910d38e9f32f3b01af9092b4c8be
 
   rmt_tx_wait_all_done(tx, portMAX_DELAY);
 }
