@@ -4,7 +4,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/projdefs.h"
 #include "freertos/task.h"
-#include "driver/gpio.h"
+
 #include "driver/rmt_tx.h"
 #include "driver/rmt_rx.h"
 
@@ -12,7 +12,6 @@ typedef struct {
     char* configString;
     int configInt;
 } taskConfig;
-
 
 const uint8_t preambule = 0x55;
 const uint8_t start = 0x7E;
@@ -25,8 +24,15 @@ const uint8_t crc = 2;
 
 #define RMT_HALF_BIT_TICKS (RMT_RES_HZ / (BITRATE * 2))
 
-rmt_tx_channel_config_t default_cfg = {
-        .gpio_num = NULL,
+const rmt_rx_channel_config_t rx_cfg = {
+        .gpio_num = GPIO_NUM_19,
+        .clk_src = RMT_CLK_SRC_DEFAULT,
+        .resolution_hz = BITRATE,   
+        .mem_block_symbols = 64,
+    };
+
+const rmt_tx_channel_config_t tx_cfg = {
+        .gpio_num = GPIO_NUM_23,
         .clk_src = RMT_CLK_SRC_DEFAULT,
         .resolution_hz = BITRATE,   
         .mem_block_symbols = 64,
@@ -35,6 +41,8 @@ rmt_tx_channel_config_t default_cfg = {
 
 rmt_channel_handle_t tx;
 rmt_channel_handle_t rx;
+
+static rmt_symbol_word_t rx_buffer[8];
 
 enum com_typ {
     debut = 0x01,
@@ -50,7 +58,6 @@ enum trame_pos {
     charge_pos = 6,
 }; // crc and end pos depends on charge longueur
 
-
 typedef struct {
     uint8_t* entete; // type de comm, num sequence, longueur charge, volume dynamique
     uint8_t* chargeUtile;
@@ -64,6 +71,16 @@ uint8_t crc_pos(trame* t) {
 
 uint8_t end_pos(trame* t) {
     return (charge_pos + t->chargeLength + 2);
+}
+
+void start_rx(void)
+{
+    rmt_receive_config_t rx_cfg = {
+        .signal_range_min_ns = 100,
+        .signal_range_max_ns = 1000000,
+    };
+
+    rmt_receive(rx, rx_buffer, sizeof(rx_buffer), &rx_cfg);
 }
 
 static void encode_manchester(uint8_t byte, rmt_symbol_word_t *out)
@@ -85,6 +102,49 @@ static void encode_manchester(uint8_t byte, rmt_symbol_word_t *out)
             out[i].level1 = 0;
         }
     }
+}
+
+static uint8_t decode_manchester(rmt_symbol_word_t *sym)
+{
+    uint8_t out = 0;
+
+    for (int i = 0; i < 8; i++) {
+        rmt_symbol_word_t s = sym[i];
+        bool bit;
+
+        // LOW→HIGH = 1
+        if (s.level0 == 0 && s.level1 == 1) {
+            bit = 1;
+        }
+        // HIGH→LOW = 0
+        else {
+            bit = 0;
+        }
+
+        out = (out << 1) | bit;
+    }
+
+    return out;
+}
+
+void send_byte(uint8_t data)
+{
+    rmt_symbol_word_t symbols[8];
+    encode_manchester(data, symbols);
+
+    rmt_transmit_config_t tx_cfg = {
+        .loop_count = 0,
+    };
+
+    rmt_transmit(
+        tx,
+        NULL,   // no encoder (raw symbols)
+        symbols,
+        sizeof(symbols),
+        &tx_cfg
+    );
+
+    rmt_tx_wait_all_done(tx, portMAX_DELAY);
 }
 
 void initTaskConfig(taskConfig* conf, char* str, int num) {
@@ -126,18 +186,41 @@ void receive(uint8_t* buffer, uint8_t start, uint8_t end) {
 
 }
 
+void bidonTask(void *pvParameters) {
+    while(1) {
+        send_byte(0x55);
+        printf("bidontasking : ");
+        if (rx_buffer[0].duration0 != 0 || rx_buffer[0].duration1 != 0) {
+            uint8_t decoded = decode_manchester(rx_buffer);
+            printf("0x%02X", decoded);
+        } else {
+            printf("<no data>");
+        }
+        printf("\n");
+        vTaskDelay(pdMS_TO_TICKS(1));
+    }
+}
+
 void app_main() {
-    default_cfg.gpio_num = GPIO_NUM_23;
-    rmt_new_tx_channel(&default_cfg, &tx);
-
-    default_cfg.gpio_num = GPIO_NUM_19;
-    rmt_new_rx_channel(&default_cfg, &rx);
-
+    rmt_new_rx_channel(&rx_cfg, &rx);
+    rmt_new_tx_channel(&tx_cfg, &tx);
     rmt_enable(tx);
     rmt_enable(rx);
 
-    taskConfig* conf = &(taskConfig){};
-    initTaskConfig(conf, "lol", 2);
+    start_rx();
 
-    xTaskCreate(task, "task 1", 2048, conf, 1, NULL);
+    xTaskCreatePinnedToCore(
+        bidonTask, 
+        "bidonTask", 
+        2048, 
+        NULL, 
+        1, 
+        NULL, 
+        1
+    );
+
+    // taskConfig* conf = &(taskConfig){};
+    // initTaskConfig(conf, "lol", 2);
+
+    // xTaskCreate(task, "task 1", 2048, conf, 1, NULL);
 }
