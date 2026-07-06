@@ -59,17 +59,47 @@ typedef struct
 } trame;
 #pragma pack(pop)
 
-void init_trame(trame *t)
-{
-  if (t != NULL)
-  {
+uint8_t crc_pos(trame *t) { return (charge_pos + t->chargeLength); }
+
+uint8_t end_pos(trame *t) { return (charge_pos + t->chargeLength + 2); }
+
+void init_trame(trame *t) {
+  if (t != NULL) {
     memset(t, 0, sizeof(trame));
   }
 }
 
-uint8_t crc_pos(trame *t) { return (charge_pos + t->chargeLength); }
+void print_trame(trame *t) {
+  if (t == NULL) {
+    return;
+  }
 
-uint8_t end_pos(trame *t) { return (charge_pos + t->chargeLength + 2); }
+  printf("Trame:\n  Entete: ");
+  printf("%02X, %02X, %02X, %02X, ", t->fields.entete[0], t->fields.entete[1],
+         t->fields.entete[2], t->fields.entete[3]);
+  printf("  ChargeUtile[]:");
+  for (uint8_t i = 0; i < t->chargeLength; i++) {
+    if (i % 8 == 0) {
+      printf("\n    ");
+    }
+    printf(" %02X,", t->fields.chargeUtile[i]);
+  }
+  printf("\n  crc: %02X%02X", t->crc[0], t->crc[1]);
+}
+
+// pass empty buffer with already allocated memory and will fill it
+void trame_to_buffer(trame *t, uint8_t *buffer) {
+    buffer[preambule_pos] = preambule;
+    buffer[start_pos] = start;
+    memcpy(&buffer[entete_pos], t->flat_buffer, t->chargeLength + 4);
+    memcpy(&buffer[crc_pos(t)], t->crc, 2);
+    buffer[end_pos(t)] = end;
+}
+
+void example_trame_first_message(trame *t) {
+    t->fields.entete[0]
+}
+
 
 typedef struct
 {
@@ -78,6 +108,7 @@ typedef struct
   uint8_t message[89];
   uint8_t currentIndex;
   bool current[2];
+  bool last_was_zero;
   bool finished;
 } man_message;
 
@@ -118,19 +149,21 @@ void follow(man_message *mm, uint8_t duration, bool level)
     return;
 
   // if long pulse, treated as 2 short pulses
-  if (duration == 2) // TODO define long and short durations
+  if (duration == 1) {
+    mm->last_was_zero = false;
+  } else if (duration > 2) {
+    return;
+  } else if (duration == 2) // TODO define long and short durations
   {
     follow(mm, 1, level);
     follow(mm, 1, level);
     return;
-  }
-  else if (duration == 0)
-  {
-    return;
-  }
-  else if (duration > 2)
-  {
-    return;
+  } else if (duration == 0) {
+    if (mm->last_was_zero == false) {
+      mm->last_was_zero = true;
+    } else {
+      return;
+    }
   }
   // if very long pulse, its the first value of the next (edge case?)
 
@@ -277,16 +310,26 @@ void rx_task(void *arg)
     {
       get_rx_symbols(local_symbols, BUFFER_SIZE);
 
-      for (int i = 0; i < BUFFER_SIZE; i++)
-      {
-        printf("Symbol %d: level0=%d duration0=%d, level1=%d duration1=%d\n",
-               i, local_symbols[i].level0, local_symbols[i].duration0,
+      for (int i = 0; i < BUFFER_SIZE; i++) {
+        printf("Symbol %d: level0=%d duration0=%d, level1=%d duration1=%d\n", i,
+               local_symbols[i].level0, local_symbols[i].duration0,
                local_symbols[i].level1, local_symbols[i].duration1);
       }
 
-      decode_manchester_charles(local_symbols, &tr,
-                                &mm, BUFFER_SIZE);
+      decode_manchester_charles(local_symbols, &tr, &mm, BUFFER_SIZE);
       print_man_message(&mm);
+
+      if (mm.finished) {
+        printf("\n\n\n\n\nRX: received full message");
+        print_man_message(&mm);
+        man_to_trame(&mm, &tr);
+        printf("\n");
+        print_trame(&tr);
+
+        printf("\nFlushing and going again");
+        init_trame(&tr);
+        init_man_message(&mm);
+      }
 
       start_rx(); // re-arm for next reception
     }
@@ -298,8 +341,7 @@ void tx_task(void *arg)
 {
   uint8_t data = 0;
 
-  for (;;)
-  {
+  for (;;) {
     uint8_t datastr[2] = {0x55, data};
     send_msg(datastr, 2);
     data++;
