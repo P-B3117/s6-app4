@@ -1,13 +1,20 @@
+#include <stdatomic.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "./ringbuffer.h"
 #include <stdint.h>
 
 void Arb_init(Atomic_ringbuffer *arb, uint16_t size) {
   arb->buffer = (atomic_char *)malloc(size * sizeof(atomic_char));
+  memset(arb->buffer, 0, size * sizeof(atomic_char));
   arb->head = 0;
   arb->tail = 0;
   arb->size = size;
+}
+
+void Arb_deinit(Atomic_ringbuffer *arb) {
+    free(arb->buffer);
 }
 
 bool Arb_is_empty(Atomic_ringbuffer *arb) {
