@@ -61,8 +61,8 @@ void send_msg(uint8_t *data, size_t len)
 void start_rx()
 {
     rmt_receive_config_t receive_cfg = {
-        .signal_range_min_ns = 10,
-        .signal_range_max_ns = 1000,
+        .signal_range_min_ns = 30, // 33ns ns est une demi periode
+        .signal_range_max_ns = 150, // 4x periode trop petit
     };
     rmt_receive(rx, rx_buffer, sizeof(rx_buffer), &receive_cfg);
 }
