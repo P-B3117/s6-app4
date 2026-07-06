@@ -16,14 +16,14 @@ static rmt_encoder_handle_t encoder = NULL;
 static const rmt_rx_channel_config_t rx_cfg = {
     .gpio_num = GPIO_NUM_19,
     .clk_src = RMT_CLK_SRC_DEFAULT,
-    .resolution_hz = BITRATE,
+    .resolution_hz = RESOLUTION,
     .mem_block_symbols = 64,
 };
 
 static const rmt_tx_channel_config_t tx_cfg = {
     .gpio_num = GPIO_NUM_23,
     .clk_src = RMT_CLK_SRC_DEFAULT,
-    .resolution_hz = BITRATE,
+    .resolution_hz = RESOLUTION,
     .mem_block_symbols = 64,
     .trans_queue_depth = 4,
 };
@@ -56,8 +56,8 @@ void send_byte(uint8_t data)
 void start_rx()
 {
     rmt_receive_config_t receive_cfg = {
-        .signal_range_min_ns = 100,
-        .signal_range_max_ns = 1000000,
+        .signal_range_min_ns = 10,
+        .signal_range_max_ns = 1000,
     };
     rmt_receive(rx, rx_buffer, sizeof(rx_buffer), &receive_cfg);
 }
