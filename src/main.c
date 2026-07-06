@@ -90,9 +90,9 @@ void trame_to_buffer(trame *t, uint8_t *buffer) {
     buffer[end_pos(t)] = end;
 }
 
-void example_trame_first_message(trame *t) {
-    t->fields.entete[0]
-}
+// void example_trame_first_message(trame *t) {
+//     t->fields.entete[0];
+// }
 
 
 typedef struct {
@@ -146,7 +146,7 @@ void follow(man_message *mm, uint8_t duration, bool level) {
     follow(mm, 1, level);
     return;
   } else if (duration == 0) {
-    if (mm->last_was_zero == false) {
+    if (mm->last_was_zero == false && mm->currentIndex == 1) {
       mm->last_was_zero = true;
     } else {
       return;
