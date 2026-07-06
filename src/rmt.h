@@ -7,7 +7,7 @@
 
 #define BUFFER_SIZE 712
 
-#define RESOLUTION 10000000
+#define RESOLUTION 30000000 // MAX according to specs
 #define RMT_SPEED_HZ 80000000
 #define RMT_HALF_BIT_TICKS 1 // max rmt speed
 
