@@ -57,6 +57,8 @@ uint8_t crc_pos(trame *t) { return (charge_pos + t->chargeLength); }
 
 uint8_t end_pos(trame *t) { return (charge_pos + t->chargeLength + 2); }
 
+uint8_t trame_size(trame *t) { return (t->chargeLength + 9); }
+
 void init_trame(trame *t) {
   if (t != NULL) {
     memset(t, 0, sizeof(trame));
@@ -91,43 +93,43 @@ void trame_to_buffer(trame *t, uint8_t *buffer) {
 }
 
 void example_trame_first_message(trame *t) {
-    t->fields.entete[0] = 0x01;
-    t->fields.entete[1] = 0x01;
-    t->fields.entete[2] = 0x00;
-    t->fields.entete[3] = 0x01;
+  t->fields.entete[0] = 0x01;
+  t->fields.entete[1] = 0x01;
+  t->fields.entete[2] = 0x00;
+  t->fields.entete[3] = 0x01;
 
-    t->chargeLength = 0;
+  t->chargeLength = 0;
 
-    t->crc[0] = 0xD5;
-    t->crc[1] = 0x65;
+  t->crc[0] = 0xD5;
+  t->crc[1] = 0x65;
 }
 
 void example_trame_second_message(trame *t) {
-    t->fields.entete[0] = 0x02;
-    t->fields.entete[1] = 0x02;
-    t->fields.entete[2] = 0x03;
-    t->fields.entete[3] = 0x00;
+  t->fields.entete[0] = 0x02;
+  t->fields.entete[1] = 0x02;
+  t->fields.entete[2] = 0x03;
+  t->fields.entete[3] = 0x00;
 
-    t->chargeLength = 3;
+  t->chargeLength = 3;
 
-    t->fields.chargeUtile[0] = 0x07;
-    t->fields.chargeUtile[1] = 0x04;
-    t->fields.chargeUtile[2] = 0x09;
+  t->fields.chargeUtile[0] = 0x07;
+  t->fields.chargeUtile[1] = 0x04;
+  t->fields.chargeUtile[2] = 0x09;
 
-    t->crc[0] = 0x2C;
-    t->crc[1] = 0xC2;
+  t->crc[0] = 0x2C;
+  t->crc[1] = 0xC2;
 }
 
 void example_trame_third_message(trame *t) {
-    t->fields.entete[0] = 0x03;
-    t->fields.entete[1] = 0x03;
-    t->fields.entete[2] = 0x00;
-    t->fields.entete[3] = 0x00;
+  t->fields.entete[0] = 0x03;
+  t->fields.entete[1] = 0x03;
+  t->fields.entete[2] = 0x00;
+  t->fields.entete[3] = 0x00;
 
-    t->chargeLength = 0;
+  t->chargeLength = 0;
 
-    t->crc[0] = 0x46;
-    t->crc[1] = 0x4C;
+  t->crc[0] = 0x46;
+  t->crc[1] = 0x4C;
 }
 
 typedef struct {
@@ -345,12 +347,26 @@ void rx_task(void *arg) {
 }
 
 void tx_task(void *arg) {
-  uint8_t data = 0;
+  uint8_t datastr[1024] = {0};
+  uint8_t i = 0;
+  trame tr;
+  init_trame(&tr);
+
+  printf("\nTX: now looping\n");
 
   for (;;) {
-    uint8_t datastr[2] = {0x55, data};
-    send_msg(datastr, 2);
-    data++;
+    i = i % 3;
+    if (i == 0) {
+      example_trame_first_message(&tr);
+      trame_to_buffer(&tr, datastr);
+    } else if (i == 1) {
+      example_trame_first_message(&tr);
+      trame_to_buffer(&tr, datastr);
+    } else if (i == 2) {
+      example_trame_first_message(&tr);
+      trame_to_buffer(&tr, datastr);
+    }
+    send_msg(datastr, trame_size(&tr));
     vTaskDelay(pdMS_TO_TICKS(1000));
   }
 }
@@ -360,9 +376,9 @@ void app_main() {
   vTaskDelay(pdMS_TO_TICKS(1000));
 
   printf("Starting tasks rx...\n");
-  xTaskCreatePinnedToCore(rx_task, "receive", 2048, NULL, 1, NULL, 1);
+  xTaskCreatePinnedToCore(rx_task, "receive", 4096, NULL, 1, NULL, 1);
   printf("Starting tasks tx...\n");
-  xTaskCreatePinnedToCore(tx_task, "send", 2048, NULL, 1, NULL, 1);
+  xTaskCreatePinnedToCore(tx_task, "send", 4096, NULL, 1, NULL, 1);
 
   // while (1)
   // {
