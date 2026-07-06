@@ -7,7 +7,7 @@
 
 #define BUFFER_SIZE 16
 
-#define BITRATE 10000000 // 100 MHz (10 ns ticks)
+#define BITRATE 1000000 // 10 MHz (100 ns ticks)
 #define RMT_RES_HZ 80000000
 
 #define RMT_HALF_BIT_TICKS (RMT_RES_HZ / (BITRATE * 2))

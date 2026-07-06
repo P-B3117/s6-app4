@@ -6,12 +6,12 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "crc.h"
-#include "rmt.h"
 #include "driver/rmt_rx.h"
 #include "driver/rmt_tx.h"
 #include "hal/rmt_types.h"
 
+#include "crc.h"
+#include "rmt.h"
 typedef struct
 {
   char *configString;
@@ -292,7 +292,7 @@ void app_main()
   printf("Starting tasks rx...\n");
   xTaskCreatePinnedToCore(rx_task, "receive", 2048, NULL, 1, NULL, 1);
   printf("Starting tasks tx...\n");
-  xTaskCreatePinnedToCore(tx_task, "bidonSend", 2048, NULL, 1, NULL, 1);
+  xTaskCreatePinnedToCore(tx_task, "send", 2048, NULL, 1, NULL, 1);
 
   // while (1)
   // {
