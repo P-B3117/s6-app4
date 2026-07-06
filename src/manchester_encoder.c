@@ -1,6 +1,6 @@
 #include "manchester_encoder.h"
+#include "rmt.h"
 
-#define RMT_HALF_BIT_TICKS 1
 typedef struct
 {
     rmt_encoder_t base;
@@ -69,25 +69,6 @@ static size_t rmt_encode_manchester(rmt_encoder_t *encoder,
     // All bytes encoded
     *ret_state = RMT_ENCODING_COMPLETE;
     manchester_encoder->current_byte = 0; // reset for next transaction
-    printf("Manchester encoding complete from:");
-    printf("\n");
-    for (size_t i = 0; i < data_size; i++)
-    {
-        printf(" %02x,", data[i]);
-    }
-    printf("\n");
-    printf("Encoded symbols: %zu\n", encoded_symbols);
-    for (size_t i = 0; i < data_size; i++)
-    {
-        rmt_symbol_word_t *symbols = manchester_encoder->manchester_table[data[i]];
-        for (int j = 0; j < 8; j++)
-        {
-            printf("  Byte[%zu] Symbol[%d]: level0=%d duration0=%d level1=%d duration1=%d\n",
-                   i, j, symbols[j].level0, symbols[j].duration0,
-                   symbols[j].level1, symbols[j].duration1);
-        }
-    }
-
     return encoded_symbols;
 }
 

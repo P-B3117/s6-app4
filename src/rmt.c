@@ -3,10 +3,6 @@
 
 #include <string.h>
 
-// 1 tick at resolution_hz == BITRATE. Tune this to your desired half-bit
-// period: e.g. if BITRATE = 1000000 (1 tick = 1us) and you want a 2us
-// half-bit, set this to 2.
-
 static rmt_channel_handle_t tx = NULL;
 static rmt_channel_handle_t rx = NULL;
 static rmt_symbol_word_t rx_buffer[BUFFER_SIZE];
