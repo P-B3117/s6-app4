@@ -18,6 +18,8 @@ typedef enum {
 
 void Arb_init(Atomic_ringbuffer *arb, uint16_t size);
 
+void Arb_deinit(Atomic_ringbuffer *arb);
+
 bool Arb_is_empty(Atomic_ringbuffer *arb);
 
 bool Arb_is_full(Atomic_ringbuffer *arb);
