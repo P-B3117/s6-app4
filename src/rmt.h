@@ -16,6 +16,7 @@
 
 void setup_transmission();
 void send_byte(uint8_t data);
+void send_msg(uint8_t *data, size_t len);
 void start_rx();
 SemaphoreHandle_t get_rx_semaphore();
 size_t get_rx_symbols(rmt_symbol_word_t *out, size_t max_symbols);

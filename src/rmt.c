@@ -53,6 +53,15 @@ void send_byte(uint8_t data)
     rmt_tx_wait_all_done(tx, 0xffffffffUL);
 }
 
+void send_msg(uint8_t *data, size_t len)
+{
+    rmt_transmit_config_t cfg = {
+        .loop_count = 0,
+    };
+    rmt_transmit(tx, encoder, data, len, &cfg);
+    rmt_tx_wait_all_done(tx, 0xffffffffUL);
+}
+
 void start_rx()
 {
     rmt_receive_config_t receive_cfg = {

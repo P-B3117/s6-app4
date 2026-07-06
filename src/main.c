@@ -278,8 +278,8 @@ void tx_task(void *arg)
 
   for (;;)
   {
-    send_byte(0x55);
-    send_byte(data);
+    uint8_t datastr[2] = {0x55, data};
+    send_msg(datastr, 2);
     data++;
     vTaskDelay(pdMS_TO_TICKS(500));
   }
