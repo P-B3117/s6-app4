@@ -47,6 +47,18 @@ rmt_channel_handle_t tx;
 rmt_channel_handle_t rx;
 
 static rmt_symbol_word_t rx_buffer[8];
+static volatile bool rx_done = false;
+
+static bool IRAM_ATTR rmt_rx_done_cb(rmt_channel_handle_t channel,
+                                     const rmt_rx_done_event_data_t *edata,
+                                     void *user_data) {
+  memcpy(rx_buffer, edata->received_symbols,
+         edata->num_symbols * sizeof(rmt_symbol_word_t));
+
+  rx_done = true;
+
+  return true;
+}
 
 typedef enum {
   debut = 0x01,
@@ -93,7 +105,7 @@ void start_rx(void) {
       .signal_range_min_ns = 100,
       .signal_range_max_ns = 1000000,
   };
-
+  rx_done = false;
   rmt_receive(rx, rx_buffer, sizeof(rx_buffer), &rx_cfg);
 }
 
@@ -286,24 +298,43 @@ void send(trame *input) {}
 void receive(uint8_t *buffer, uint8_t start, uint8_t end) {}
 
 void bidonTask(void *pvParameters) {
+  printf("\nBidon Tasking\n");
+
   while (1) {
+    rx_done = false;
     send_byte(0x55);
-    printf("bidontasking : ");
+
+    while (!rx_done) {
+      printf("waiting on rx done\n");
+      vTaskDelay(1);
+    }
 
     trame tr;
     init_trame(&tr);
     man_message mm;
     init_man_message(&mm);
+    int valid = 0;
 
-    if (rx_buffer[0].duration0 != 0 || rx_buffer[0].duration1 != 0) {
-      // serait supposés de loop until mm finished mais bon
-      decode_manchester_charles(rx_buffer, &tr, &mm);
-      print_man_message(&mm);
-    } else {
-      printf("<no data>");
+    for (int i = 0; i < 64; i++) {
+      if (rx_buffer[i].duration0 == 0 && rx_buffer[i].duration1 == 0) {
+        break;
+      }
+      valid++;
     }
-    printf("\n");
-    vTaskDelay(pdMS_TO_TICKS(1));
+
+    printf("valid symbols: %d\n", valid);
+
+    decode_manchester_charles(rx_buffer, &tr, &mm);
+    print_man_message(&mm);
+
+    for (int i = 0; i < 8; i++) {
+      printf(
+          "rx_buffer[%d]: duration0=%d, duration1=%d, level0=%d, level1=%d\n",
+          i, rx_buffer[i].duration0, rx_buffer[i].duration1,
+          rx_buffer[i].level0, rx_buffer[i].level1);
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(500));
   }
 }
 
@@ -313,9 +344,21 @@ void app_main() {
   rmt_enable(tx);
   rmt_enable(rx);
 
+  rmt_rx_event_callbacks_t cbs = {
+      .on_recv_done = rmt_rx_done_cb,
+  };
+  rmt_rx_register_event_callbacks(rx, &cbs, NULL);
+
+  rmt_copy_encoder_config_t encoder_cfg = {};
+  rmt_new_copy_encoder(&encoder_cfg, &encoder);
+
   start_rx();
 
   xTaskCreatePinnedToCore(bidonTask, "bidonTask", 2048, NULL, 1, NULL, 1);
+
+  while (1) {
+    vTaskDelay(3000);
+  }
 
   // taskConfig* conf = &(taskConfig){};
   // initTaskConfig(conf, "lol", 2);
