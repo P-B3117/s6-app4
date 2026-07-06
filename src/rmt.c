@@ -1,6 +1,7 @@
 #include "rmt.h"
 #include "manchester_encoder.h"
-#include "freertos/FreeRTOS.h"
+
+#include <string.h>
 
 // 1 tick at resolution_hz == BITRATE. Tune this to your desired half-bit
 // period: e.g. if BITRATE = 1000000 (1 tick = 1us) and you want a 2us
