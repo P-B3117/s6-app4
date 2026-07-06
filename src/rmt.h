@@ -5,14 +5,11 @@
 #include "driver/rmt_rx.h"
 #include "driver/rmt_tx.h"
 
-#define BUFFER_SIZE 16
+#define BUFFER_SIZE 712
 
 #define RESOLUTION 10000000
 #define RMT_SPEED_HZ 80000000
-
-#define RMT_FULL_BIT_TICKS RESOLUTION / RMT_SPEED_HZ
-#define RMT_HALF_BIT_TICKS RMT_FULL_BIT_TICKS / 2
-#define RMT_FULL_BIT_THRESHOLD (RMT_HALF_BIT_TICKS + (RMT_HALF_BIT_TICKS / 2))
+#define RMT_HALF_BIT_TICKS 1 // max rmt speed
 
 void setup_transmission();
 void send_byte(uint8_t data);

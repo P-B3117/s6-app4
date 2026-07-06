@@ -73,7 +73,7 @@ void print_trame(trame *t) {
   printf("Trame:\n  Entete: ");
   printf("%02X, %02X, %02X, %02X, ", t->fields.entete[0], t->fields.entete[1],
          t->fields.entete[2], t->fields.entete[3]);
-  printf("  ChargeUtile[]:");
+  printf("\n  ChargeUtile[]:");
   for (uint8_t i = 0; i < t->chargeLength; i++) {
     if (i % 8 == 0) {
       printf("\n    ");
@@ -188,6 +188,7 @@ void follow(man_message *mm, uint8_t duration, bool level) {
       return;
     }
   }
+  printf("duration: %hhu level: %hhu\n", duration, level);
   // if very long pulse, its the first value of the next (edge case?)
 
   // printf("\nFollowing %hhu, %d\n", duration, level);
@@ -211,8 +212,11 @@ void follow(man_message *mm, uint8_t duration, bool level) {
   }
 
   if (mm->bitIndex >= 8) {
-    if (mm->message[mm->messageIndex] == end && mm->messageIndex >= 8) {
-      mm->finished = true;
+    if (mm->messageIndex >= 5) {
+      uint8_t supposed_end = 2 + 4 + mm->message[4] + 3;
+      if (mm->messageIndex >= supposed_end && mm->message[mm->messageIndex] == end) {
+        mm->finished = true;
+      }
     }
 
     // close
@@ -224,40 +228,26 @@ void follow(man_message *mm, uint8_t duration, bool level) {
 
 // TODO currently copies the mm to the trame, could be improved.
 void man_to_trame(man_message *mm, trame *out) {
-  out->chargeLength = mm->messageIndex - 7;
-  memcpy(out->flat_buffer, &mm->message[2], mm->messageIndex - 4);
+  out->chargeLength = mm->message[4];
+  memcpy(out->flat_buffer, &mm->message[2], mm->message[4] + 4);
   memcpy(out->crc, &mm->message[mm->messageIndex - 3], 2);
 }
 
-// currently assumes it receives a byte.
-static void decode_manchester_charles(rmt_symbol_word_t *sym, trame *out,
-                                      man_message *mm, uint8_t n_sym) {
-  for (uint8_t i = 0; i < n_sym; i++) {
+// returns position it was at when the message was finished. n_sym - 1 means
+// looped everything;
+static uint16_t decode_manchester_charles(rmt_symbol_word_t *sym, trame *out,
+                                          man_message *mm, uint16_t i,
+                                          uint16_t n_sym) {
+
+  for (; i < n_sym; i++) {
     follow(mm, sym[i].duration0, sym[i].level0);
     follow(mm, sym[i].duration1, sym[i].level1);
-  }
-}
-
-static uint8_t decode_manchester(rmt_symbol_word_t *sym) {
-  uint8_t out = 0;
-
-  for (int i = 0; i < 8; i++) {
-    rmt_symbol_word_t s = sym[i];
-    bool bit;
-
-    // LOW→HIGH = 1
-    if (s.level0 == 0 && s.level1 == 1) {
-      bit = 1;
+    if (mm->finished == true) {
+      return i;
     }
-    // HIGH→LOW = 0
-    else {
-      bit = 0;
-    }
-
-    out = (out << 1) | bit;
   }
 
-  return out;
+  return i;
 }
 
 void initTaskConfig(taskConfig *conf, char *str, int num) {
@@ -265,38 +255,12 @@ void initTaskConfig(taskConfig *conf, char *str, int num) {
   conf->configInt = num;
 }
 
-void task(void *pvParameters) {
-  taskConfig *conf = (taskConfig *)pvParameters;
-
-  while (1) {
-    printf("tasking");
-    vTaskDelay(pdMS_TO_TICKS(500));
-  }
-}
-
-// loop send toutes les trames dans une queue.
-void task_sender(void *pvParameters) {
-  ////RMT
-}
-
-// loop receive toutes les trames dans une queue
-void task_receiver(void *pvParameters) {
-  ////RMT
-}
-
-// crc is 2 byte array (to ensure easy concatenation)
+// crc 2 byte
 void calc_crc(trame *input) {
   uint16_t crc = crc16(input->flat_buffer, input->chargeLength + 4);
   input->crc[0] = crc & 0xFF;
   input->crc[1] = (crc >> 8) & 0xFF;
 }
-
-// input is message (whole ass tableau annexe) to send to other esp,
-// manchester the binary of the message
-void send(trame *input) {}
-
-// decodes the buffer from manchester to standard bytes
-void receive(uint8_t *buffer, uint8_t start, uint8_t end) {}
 
 void rx_task(void *arg) {
   SemaphoreHandle_t sem = get_rx_semaphore();
@@ -305,21 +269,29 @@ void rx_task(void *arg) {
   man_message mm;
   init_trame(&tr);
   init_man_message(&mm);
+  uint16_t decoder_pos = 0;
 
   printf("RX: now looping\n");
 
   for (;;) {
     if (xSemaphoreTake(sem, portMAX_DELAY) == pdTRUE) {
       get_rx_symbols(local_symbols, BUFFER_SIZE);
+      // printf("RX: existing");
 
-      for (int i = 0; i < BUFFER_SIZE; i++) {
-        printf("Symbol %d: level0=%d duration0=%d, level1=%d duration1=%d\n", i,
-               local_symbols[i].level0, local_symbols[i].duration0,
-               local_symbols[i].level1, local_symbols[i].duration1);
-      }
+      // for (int i = 0; i < BUFFER_SIZE; i++) {
+      //   printf("Symbol %d: level0=%d duration0=%d, level1=%d duration1=%d\n",
+      //   i,
+      //          local_symbols[i].level0, local_symbols[i].duration0,
+      //          local_symbols[i].level1, local_symbols[i].duration1);
+      // }
 
-      decode_manchester_charles(local_symbols, &tr, &mm, BUFFER_SIZE);
-      print_man_message(&mm);
+      // while (decoder_pos < BUFFER_SIZE) {
+      // printf("%d", decoder_pos);
+      decoder_pos =
+          decode_manchester_charles(&local_symbols[decoder_pos], &tr, &mm,
+                                    decoder_pos, BUFFER_SIZE - decoder_pos) +
+          1;
+      // print_man_message(&mm);
       mm.currentIndex = 0;
       mm.current[0] = 0;
       mm.current[1] = 0;
@@ -329,21 +301,23 @@ void rx_task(void *arg) {
       }
 
       if (mm.finished) {
-        printf("\n\n\n\n\nRX: received full message");
+        printf("\n\n\n\n\nRX: received full message\n");
         print_man_message(&mm);
         man_to_trame(&mm, &tr);
         printf("\n");
         print_trame(&tr);
 
-        printf("\nFlushing and going again");
+        printf("\nFlushing and going again\n");
         init_trame(&tr);
         init_man_message(&mm);
       }
 
-      start_rx(); // re-arm for next reception
+      decoder_pos = 0;
     }
-    vTaskDelay(0);
+
+    start_rx(); // re-arm for next reception
   }
+  vTaskDelay(0);
 }
 
 void tx_task(void *arg) {
@@ -355,19 +329,23 @@ void tx_task(void *arg) {
   printf("\nTX: now looping\n");
 
   for (;;) {
+    memset(&datastr, 0, 1024);
     i = i % 3;
     if (i == 0) {
       example_trame_first_message(&tr);
       trame_to_buffer(&tr, datastr);
     } else if (i == 1) {
-      example_trame_first_message(&tr);
+      example_trame_second_message(&tr);
       trame_to_buffer(&tr, datastr);
     } else if (i == 2) {
-      example_trame_first_message(&tr);
+      example_trame_third_message(&tr);
       trame_to_buffer(&tr, datastr);
     }
-    send_msg(datastr, trame_size(&tr));
-    vTaskDelay(pdMS_TO_TICKS(1000));
+    printf("sending message: %hhu\n", i);
+    vTaskDelay(pdMS_TO_TICKS(500));
+    send_msg(datastr, trame_size(&tr) + 1);
+    vTaskDelay(pdMS_TO_TICKS(5000));
+    i++;
   }
 }
 
@@ -376,17 +354,7 @@ void app_main() {
   vTaskDelay(pdMS_TO_TICKS(1000));
 
   printf("Starting tasks rx...\n");
-  xTaskCreatePinnedToCore(rx_task, "receive", 4096, NULL, 1, NULL, 1);
+  xTaskCreatePinnedToCore(rx_task, "receive", 8192, NULL, 1, NULL, 1);
   printf("Starting tasks tx...\n");
-  xTaskCreatePinnedToCore(tx_task, "send", 4096, NULL, 1, NULL, 1);
-
-  // while (1)
-  // {
-  //   vTaskDelay(3000);
-  // }
-
-  // taskConfig* conf = &(taskConfig){};
-  // initTaskConfig(conf, "lol", 2);
-
-  // xTaskCreate(task, "task 1", 2048, conf, 1, NULL);
+  xTaskCreatePinnedToCore(tx_task, "send", 8192, NULL, 1, NULL, 1);
 }
