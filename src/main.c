@@ -90,9 +90,39 @@ void trame_to_buffer(trame *t, uint8_t *buffer) {
   buffer[end_pos(t)] = end;
 }
 
-// void example_trame_first_message(trame *t) {
-//     t->fields.entete[0];
-// }
+void example_trame_first_message(trame *t) {
+    t->fields.entete[0] = 0x01;
+    t->fields.entete[1] = 0x01;
+    t->fields.entete[2] = 0x00;
+    t->fields.entete[3] = 0x01;
+
+    t->crc[0] = 0xD5;
+    t->crc[1] = 0x65;
+}
+
+void example_trame_second_message(trame *t) {
+    t->fields.entete[0] = 0x02;
+    t->fields.entete[1] = 0x02;
+    t->fields.entete[2] = 0x03;
+    t->fields.entete[3] = 0x00;
+
+    t->fields.chargeUtile[0] = 0x07;
+    t->fields.chargeUtile[1] = 0x04;
+    t->fields.chargeUtile[2] = 0x09;
+
+    t->crc[0] = 0xD5;
+    t->crc[1] = 0x65;
+}
+
+void example_trame_third_message(trame *t) {
+    t->fields.entete[0] = 0x01;
+    t->fields.entete[1] = 0x01;
+    t->fields.entete[2] = 0x00;
+    t->fields.entete[3] = 0x01;
+
+    t->crc[0] = 0xD5;
+    t->crc[1] = 0x65;
+}
 
 typedef struct {
   uint8_t bitIndex;
