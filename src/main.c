@@ -96,6 +96,8 @@ void example_trame_first_message(trame *t) {
     t->fields.entete[2] = 0x00;
     t->fields.entete[3] = 0x01;
 
+    t->chargeLength = 0;
+
     t->crc[0] = 0xD5;
     t->crc[1] = 0x65;
 }
@@ -106,22 +108,26 @@ void example_trame_second_message(trame *t) {
     t->fields.entete[2] = 0x03;
     t->fields.entete[3] = 0x00;
 
+    t->chargeLength = 3;
+
     t->fields.chargeUtile[0] = 0x07;
     t->fields.chargeUtile[1] = 0x04;
     t->fields.chargeUtile[2] = 0x09;
 
-    t->crc[0] = 0xD5;
-    t->crc[1] = 0x65;
+    t->crc[0] = 0x2C;
+    t->crc[1] = 0xC2;
 }
 
 void example_trame_third_message(trame *t) {
-    t->fields.entete[0] = 0x01;
-    t->fields.entete[1] = 0x01;
+    t->fields.entete[0] = 0x03;
+    t->fields.entete[1] = 0x03;
     t->fields.entete[2] = 0x00;
-    t->fields.entete[3] = 0x01;
+    t->fields.entete[3] = 0x00;
 
-    t->crc[0] = 0xD5;
-    t->crc[1] = 0x65;
+    t->chargeLength = 0;
+
+    t->crc[0] = 0x46;
+    t->crc[1] = 0x4C;
 }
 
 typedef struct {
