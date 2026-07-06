@@ -354,7 +354,11 @@ void app_main() {
   vTaskDelay(pdMS_TO_TICKS(1000));
 
   printf("Starting tasks rx...\n");
-  xTaskCreatePinnedToCore(rx_task, "receive", 8192, NULL, 1, NULL, 1);
+  xTaskCreatePinnedToCore(rx_task, "receive", 8192, NULL, configMAX_PRIORITIES, NULL, 1);
   printf("Starting tasks tx...\n");
+<<<<<<< HEAD
   xTaskCreatePinnedToCore(tx_task, "send", 8192, NULL, 1, NULL, 1);
+=======
+  xTaskCreatePinnedToCore(tx_task, "send", 2048, NULL, configMAX_PRIORITIES-1, NULL, 1);
+>>>>>>> 13abdabda8a6e0e1b18533b2426e988d4894efdc
 }
