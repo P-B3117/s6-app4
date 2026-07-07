@@ -1,7 +1,20 @@
 #include "rmt.h"
 #include "manchester_encoder.h"
 
+#include <stddef.h>
 #include <string.h>
+
+size_t log_current_byte = 0;
+
+size_t get_current_byte()
+{
+    return log_current_byte;
+}
+
+void set_current_byte(size_t data)
+{
+    log_current_byte = data;
+}
 
 static rmt_channel_handle_t tx = NULL;
 static rmt_channel_handle_t rx = NULL;
@@ -56,6 +69,8 @@ void send_msg(uint8_t *data, size_t len)
     };
     rmt_transmit(tx, encoder, data, len, &cfg);
     rmt_tx_wait_all_done(tx, 0xffffffffUL);
+    // printf("Sent %d bytes\n", (int)get_current_byte());
+    // set_current_byte(0);
 }
 
 void start_rx()

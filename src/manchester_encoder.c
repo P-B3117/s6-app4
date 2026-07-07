@@ -1,12 +1,13 @@
 #include "manchester_encoder.h"
 #include "rmt.h"
+#include <stdio.h>
 
 typedef struct
 {
     rmt_encoder_t base;
     rmt_encoder_handle_t copy_encoder;
     rmt_symbol_word_t manchester_table[256][8];
-    size_t current_byte; // ← Added: track position across partial encodes
+    size_t current_byte;
 } rmt_manchester_encoder_t;
 
 // Fills one byte's worth of Manchester symbols
@@ -68,6 +69,9 @@ static size_t rmt_encode_manchester(rmt_encoder_t *encoder,
 
     // All bytes encoded
     *ret_state = RMT_ENCODING_COMPLETE;
+    // printf("Encoding Complete\n");
+    // printf("Encoded %d bytes\n", (int)manchester_encoder->current_byte);
+    // set_current_byte(manchester_encoder->current_byte);
     manchester_encoder->current_byte = 0; // reset for next transaction
     return encoded_symbols;
 }

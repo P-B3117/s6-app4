@@ -4,12 +4,17 @@
 #include "freertos/semphr.h"
 #include "driver/rmt_rx.h"
 #include "driver/rmt_tx.h"
+#include <stddef.h>
+#include <stdint.h>
 
 #define BUFFER_SIZE 712
 
 #define RESOLUTION 30000000 // MAX according to specs
 #define RMT_SPEED_HZ 80000000
 #define RMT_HALF_BIT_TICKS 1 // max rmt speed
+
+size_t get_current_byte();
+void set_current_byte(size_t data);
 
 void setup_transmission();
 void send_byte(uint8_t data);

@@ -143,7 +143,7 @@ typedef struct {
 } man_message;
 
 uint8_t print_man_message(man_message *mm) {
-  printf("MM:\n  bitIndex: 0x%hhu\n  messageIndex: 0x%hhu\n ", mm->bitIndex,
+  printf("MM:\n  bitIndex: %hhu\n  messageIndex: %hhu\n ", mm->bitIndex,
          mm->messageIndex);
   printf("  Message[]:");
   for (uint8_t i = 0; i < mm->messageIndex; i++) {
@@ -167,6 +167,8 @@ uint8_t init_man_message(man_message *mm) {
   return 0;
 }
 
+uint8_t _follow_count = 1;
+
 void follow(man_message *mm, uint8_t duration, bool level) {
 
   if (mm->finished)
@@ -176,7 +178,7 @@ void follow(man_message *mm, uint8_t duration, bool level) {
   if (duration == 1) {
     // mm->last_was_zero = false;
   } else if (duration > 2) {
-    return;
+      duration = 1;
   } else if (duration == 2) // TODO define long and short durations
   {
     follow(mm, 1, level);
@@ -188,7 +190,10 @@ void follow(man_message *mm, uint8_t duration, bool level) {
       return;
     }
   }
-  printf("duration: %hhu level: %hhu\n", duration, level);
+  if ((_follow_count % 2) == 0) {
+    printf("%hhu%s", level, ((_follow_count % 16) == 0) ? "\n" : "");
+  }
+  _follow_count++;
   // if very long pulse, its the first value of the next (edge case?)
 
   // printf("\nFollowing %hhu, %d\n", duration, level);
@@ -213,8 +218,9 @@ void follow(man_message *mm, uint8_t duration, bool level) {
 
   if (mm->bitIndex >= 8) {
     if (mm->messageIndex >= 5) {
-      uint8_t supposed_end = 2 + 4 + mm->message[4] + 3;
-      if (mm->messageIndex >= supposed_end && mm->message[mm->messageIndex] == end) {
+      uint8_t supposed_end = 2 + 4 + mm->message[4] + 2;
+      if (mm->messageIndex >= supposed_end &&
+          mm->message[mm->messageIndex] == end) {
         mm->finished = true;
       }
     }
@@ -222,6 +228,7 @@ void follow(man_message *mm, uint8_t duration, bool level) {
     // close
     mm->bitIndex = 0;
     mm->messageIndex++;
+    _follow_count = 1;
     mm->last_was_zero = false;
   }
 }
@@ -230,14 +237,13 @@ void follow(man_message *mm, uint8_t duration, bool level) {
 void man_to_trame(man_message *mm, trame *out) {
   out->chargeLength = mm->message[4];
   memcpy(out->flat_buffer, &mm->message[2], mm->message[4] + 4);
-  memcpy(out->crc, &mm->message[mm->messageIndex - 3], 2);
+  memcpy(out->crc, &mm->message[2 + 4 + mm->message[4]], 2);
 }
 
 // returns position it was at when the message was finished. n_sym - 1 means
 // looped everything;
-static uint16_t decode_manchester_charles(rmt_symbol_word_t *sym, trame *out,
-                                          man_message *mm, uint16_t i,
-                                          uint16_t n_sym) {
+static uint16_t decode_manchester(rmt_symbol_word_t *sym, trame *out,
+                                  man_message *mm, uint16_t i, uint16_t n_sym) {
 
   for (; i < n_sym; i++) {
     follow(mm, sym[i].duration0, sym[i].level0);
@@ -278,19 +284,17 @@ void rx_task(void *arg) {
       get_rx_symbols(local_symbols, BUFFER_SIZE);
       // printf("RX: existing");
 
-      // for (int i = 0; i < BUFFER_SIZE; i++) {
+      // while (decoder_pos < BUFFER_SIZE) {
+      // printf("%d", decoder_pos);
+      int pos = decode_manchester(&local_symbols[decoder_pos], &tr, &mm, 0, BUFFER_SIZE);
+      print_man_message(&mm);
+      // for (int i = 0; i < pos; i++) {
       //   printf("Symbol %d: level0=%d duration0=%d, level1=%d duration1=%d\n",
       //   i,
       //          local_symbols[i].level0, local_symbols[i].duration0,
       //          local_symbols[i].level1, local_symbols[i].duration1);
       // }
 
-      // while (decoder_pos < BUFFER_SIZE) {
-      // printf("%d", decoder_pos);
-      decoder_pos =
-          decode_manchester_charles(&local_symbols[decoder_pos], &tr, &mm,
-                                    decoder_pos, BUFFER_SIZE - decoder_pos) +
-          1;
       // print_man_message(&mm);
       mm.currentIndex = 0;
       mm.current[0] = 0;
@@ -311,8 +315,6 @@ void rx_task(void *arg) {
         init_trame(&tr);
         init_man_message(&mm);
       }
-
-      decoder_pos = 0;
     }
 
     start_rx(); // re-arm for next reception
@@ -342,8 +344,13 @@ void tx_task(void *arg) {
       trame_to_buffer(&tr, datastr);
     }
     printf("sending message: %hhu\n", i);
+    uint16_t size = trame_size(&tr);
+    for (int j = 0; j < size; j++) {
+      printf("0x%02X ", datastr[j]);
+    }
+    printf("\n");
     vTaskDelay(pdMS_TO_TICKS(500));
-    send_msg(datastr, trame_size(&tr) + 1);
+    send_msg(datastr, size);
     vTaskDelay(pdMS_TO_TICKS(5000));
     i++;
   }
@@ -354,7 +361,9 @@ void app_main() {
   vTaskDelay(pdMS_TO_TICKS(1000));
 
   printf("Starting tasks rx...\n");
-  xTaskCreatePinnedToCore(rx_task, "receive", 8192, NULL, configMAX_PRIORITIES, NULL, 1);
+  xTaskCreatePinnedToCore(rx_task, "receive", 8192, NULL,
+                          configMAX_PRIORITIES - 1, NULL, 1);
   printf("Starting tasks tx...\n");
-  xTaskCreatePinnedToCore(tx_task, "send", 2048, NULL, configMAX_PRIORITIES-1, NULL, 1);
+  xTaskCreatePinnedToCore(tx_task, "send", 2048, NULL, configMAX_PRIORITIES - 2,
+                          NULL, 1);
 }
