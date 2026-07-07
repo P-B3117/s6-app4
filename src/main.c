@@ -196,7 +196,7 @@ void follow(man_message *mm, uint8_t duration, bool level) {
   _follow_count++;
   // if very long pulse, its the first value of the next (edge case?)
 
-  // printf("\nFollowing %hhu, %d\n", duration, level);
+  // printf("duration: %hhu, level: %d\n", duration, level);
 
   // function logic
   mm->current[mm->currentIndex] = level;
@@ -317,7 +317,7 @@ void rx_task(void *arg) {
       }
     }
 
-    start_rx(); // re-arm for next reception
+    start_rx(); // re-arm for next reception ??????
   }
   vTaskDelay(0);
 }

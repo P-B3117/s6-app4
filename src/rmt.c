@@ -108,7 +108,7 @@ SemaphoreHandle_t get_rx_semaphore()
 
 size_t get_rx_symbols(rmt_symbol_word_t *out, size_t max_symbols)
 {
-    size_t n = max_symbols < BUFFER_SIZE ? max_symbols : BUFFER_SIZE;
+    size_t n = (max_symbols < BUFFER_SIZE) ? max_symbols : BUFFER_SIZE;
     memcpy(out, rx_buffer, n * sizeof(rmt_symbol_word_t));
     return n;
 }
