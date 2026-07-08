@@ -43,6 +43,8 @@ void rx_task(void *arg)
   init_man_message(&mm);
   uint16_t decoder_pos = 0;
 
+  uint16_t current_packet = 0;
+
   printf("RX: now looping\n");
 
   for (;;)
@@ -74,12 +76,13 @@ void rx_task(void *arg)
 
       if (mm.finished)
       {
+        bool is_errored = false;
         trame tramemsg;
         man_to_trame(&mm, &tramemsg);
 
         uint16_t receivedcrc = (tramemsg.crc[1] << 8) | tramemsg.crc[0];
         uint16_t calculatedcrc = crc16(tramemsg.flat_buffer, tramemsg.chargeLength + 4);
-        
+
         if (receivedcrc == calculatedcrc)
         {
           printf("\n\nRX: received full message with valid CRC\n");
@@ -88,6 +91,45 @@ void rx_task(void *arg)
         {
           printf("\n\nRX: received full message with INVALID CRC\n");
           printf("Received CRC: 0x%04X, Calculated CRC: 0x%04X\n", receivedcrc, calculatedcrc);
+          is_errored = true;
+        }
+
+        switch (tramemsg.fields.entete[0])
+        {
+        case data:
+          uint16_t expected_sequence = current_packet + 1;
+          if (expected_sequence != tramemsg.fields.entete[1])
+          {
+            printf("RX: Sequence number mismatch. Expected: %d, Received: %d\n", current_packet, tramemsg.fields.entete[1]);
+            is_errored = true;
+          }
+
+          ++current_packet;
+          break;
+
+        case nack:
+          // send other msg
+          printf("RX: Received NACK, last message trash\n");
+          break;
+
+        case debut:
+          current_packet = tramemsg.fields.entete[1];
+          break;
+
+        default:
+          current_packet = 0;
+          break;
+        }
+
+        if (is_errored)
+        {
+          printf("RX: Sending NACK for message %d\n", current_packet);
+          trame nack_trame;
+          init_trame(&nack_trame);
+          create_trame(&nack_trame, nack, current_packet, 0, 0, NULL);
+          uint8_t nack_buffer[89] = {};
+          trame_to_buffer(&nack_trame, nack_buffer);
+          xQueueSend(send_queue, &nack_trame, portMAX_DELAY);
         }
       }
 
