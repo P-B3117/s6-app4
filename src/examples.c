@@ -30,13 +30,16 @@ void example_task(void *arg) {
         printf("failed to create trame: %d\n", err);
     }
 
-    print_trame(&trame_list[0]);
+    // print_trame(&trame_list[0]);
 
     for (int i = 1; i < TRAME_EXAMPLE_SIZE - 1; i++) {
-        create_trame(&trame_list[i], data, i + 1, 0, 3, (uint8_t[]){0x07 + i, 0x04 + i, 0x09 + i});
+        uint8_t payload[3] = {7 + i, 4 + i, 9 + i};
+        create_trame(&trame_list[i], data, i + 1, 0, 3, payload);
     }
 
     create_trame(&trame_list[TRAME_EXAMPLE_SIZE - 1], fin, TRAME_EXAMPLE_SIZE, 0, 0, NULL);
+
+    // print_trame(&trame_list[1]);
 
     printf("sending big chunk of %d trames\n", TRAME_EXAMPLE_SIZE);
 
@@ -56,4 +59,18 @@ void example_task(void *arg) {
 
     printf("received big chunk of %d trames\n", TRAME_EXAMPLE_SIZE);
 
+    while (1) {
+        vTaskDelay(pdMS_TO_TICKS(10000));
+    }
+
 }
+
+// MM:
+//   bitIndex: 0
+//   messageIndex: 9
+//    Message[]:
+//      55, 7E, 02, 02, 03, 00, 9B, 52,
+//      7E,
+//   currentIndex: 0
+//   current[]: 0x00, 0x00
+//   finished: false

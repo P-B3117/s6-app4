@@ -39,8 +39,6 @@ trame_err create_trame(trame *t, uint8_t type, com_typ sequence, uint16_t sequen
     if (chargeUtile == NULL) {
       return trame_charge_utile_is_null;
     }
-    memcpy(t->fields.chargeUtile, chargeUtile, chargeLength);
-    t->chargeLength = chargeLength;
   }
 
   if (t != NULL) {
@@ -49,6 +47,8 @@ trame_err create_trame(trame *t, uint8_t type, com_typ sequence, uint16_t sequen
     t->fields.entete[1] = sequence;
     t->fields.entete[2] = chargeLength;
     t->fields.entete[3] = sequenceLength;
+    memcpy(t->fields.chargeUtile, chargeUtile, chargeLength);
+    t->chargeLength = chargeLength;
     calc_trame_crc(t);
   } else {
       return trame_init_failed;

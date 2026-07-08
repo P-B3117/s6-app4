@@ -48,7 +48,7 @@ void rx_task(void *arg) {
       get_rx_symbols(local_symbols, BUFFER_SIZE);
       decode_manchester(&local_symbols[decoder_pos], &mm, 0, BUFFER_SIZE);
 
-      print_man_message(&mm);
+      // print_man_message(&mm);
 
       // for (int i = 0; i < pos; i++) {
       //   printf("Symbol %d: level0=%d duration0=%d, level1=%d duration1=%d\n",
