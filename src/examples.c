@@ -39,7 +39,11 @@ void example_task(void *arg)
 
     for (int i = 1; i < TRAME_EXAMPLE_SIZE - 1; i++)
     {
-        uint8_t payload[3] = {7 + i, 4 + i, 9 + i};
+        uint8_t payload[3] = {0};
+        for (int j = 0; j < 60; j++)
+        {
+            payload[j] = (j + i) % 255;
+        }
         create_trame(&trame_list[i], data, i + 1, 0, 3, payload);
     }
     trame_list[TRAME_EXAMPLE_SIZE - 2].fields.entete[1] = TRAME_EXAMPLE_SIZE;

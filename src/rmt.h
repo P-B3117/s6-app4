@@ -7,7 +7,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define BUFFER_SIZE 712
+#define BUFFER_SIZE 16
 
 #define RESOLUTION 30000000 // MAX according to specs
 #define RMT_SPEED_HZ 80000000
