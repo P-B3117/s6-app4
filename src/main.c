@@ -127,7 +127,7 @@ void rx_task(void *arg)
           printf("RX: Sending NACK for message %d\n", current_packet);
           trame nack_trame;
           init_trame(&nack_trame);
-          create_trame(&nack_trame, nack, current_packet, 0, 0, NULL);
+          create_trame(&nack_trame, nack, 0, current_packet, 0, NULL);
           uint8_t nack_buffer[89] = {};
           trame_to_buffer(&nack_trame, nack_buffer);
           xQueueSend(send_queue, &nack_trame, portMAX_DELAY);
