@@ -2,7 +2,7 @@
 
 #include "message.h"
 
-#define TRAME_EXAMPLE_SIZE 4 // dont put it bigger than 246
+#define TRAME_EXAMPLE_SIZE 50 // dont put it bigger than 246
 
 void example_trame_first_message(trame *t);
 

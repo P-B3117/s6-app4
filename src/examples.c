@@ -6,6 +6,8 @@
 #include "message.h"
 #include <stdio.h>
 
+#define TEST_PAYLOAD_SIZE 80
+
 extern QueueHandle_t send_queue;
 extern QueueHandle_t recv_queue;
 
@@ -39,14 +41,14 @@ void example_task(void *arg)
 
     for (int i = 1; i < TRAME_EXAMPLE_SIZE - 1; i++)
     {
-        uint8_t payload[3] = {0};
-        for (int j = 0; j < 60; j++)
+        uint8_t payload[TEST_PAYLOAD_SIZE] = {0};
+        for (int j = 0; j < TEST_PAYLOAD_SIZE; j++)
         {
             payload[j] = (j + i) % 255;
         }
-        create_trame(&trame_list[i], data, i + 1, 0, 3, payload);
+        create_trame(&trame_list[i], data, i + 1, 0, TEST_PAYLOAD_SIZE, payload);
     }
-    trame_list[TRAME_EXAMPLE_SIZE - 2].fields.entete[1] = TRAME_EXAMPLE_SIZE;
+    // trame_list[TRAME_EXAMPLE_SIZE - 2].fields.entete[1] = TRAME_EXAMPLE_SIZE;
     create_trame(&trame_list[TRAME_EXAMPLE_SIZE - 1], fin, TRAME_EXAMPLE_SIZE, 0, 0, NULL);
 
     // print_trame(&trame_list[1]);

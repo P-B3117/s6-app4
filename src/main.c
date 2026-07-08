@@ -86,12 +86,12 @@ void rx_task(void *arg)
 
         if (receivedcrc == calculatedcrc)
         {
-          printf("\n\nRX: received full message with valid CRC\n");
+          // printf("\n\nRX: received full message with valid CRC\n");
         }
         else
         {
-          printf("\n\nRX: received full message with INVALID CRC\n");
-          printf("Received CRC: 0x%04X, Calculated CRC: 0x%04X\n", receivedcrc, calculatedcrc);
+          // printf("\n\nRX: received full message with INVALID CRC\n");
+          // printf("Received CRC: 0x%04X, Calculated CRC: 0x%04X\n", receivedcrc, calculatedcrc);
           is_errored = true;
         }
 
@@ -110,7 +110,7 @@ void rx_task(void *arg)
 
         case nack:
           // send other msg
-          printf("RX: Received NACK, last message trash\n");
+          // printf("RX: Received NACK, last message trash\n");
           break;
 
         case debut:
@@ -124,7 +124,7 @@ void rx_task(void *arg)
 
         if (is_errored)
         {
-          printf("RX: Sending NACK for message %d\n", current_packet);
+          // printf("RX: Sending NACK for message %d\n", current_packet);
           trame nack_trame;
           init_trame(&nack_trame);
           create_trame(&nack_trame, nack, 0, current_packet, 0, NULL);
@@ -136,8 +136,8 @@ void rx_task(void *arg)
 
       if (mm.finished)
       {
-        printf("\n\nRX: received full message\n");
-        print_man_message(&mm);
+        // printf("\n\nRX: received full message\n");
+        // print_man_message(&mm);
         man_to_trame(&mm, &tr);
 
         // printf("\n");
@@ -168,7 +168,7 @@ void tx_task(void *arg)
   uint64_t timestamp_start = 0;
   uint64_t timestamp_stop = 0;
   uint8_t message_count = 0;
-  uint16_t byte_sent = 0;
+  uint32_t byte_sent = 0;
   uint64_t messages_timestamp[TRAME_EXAMPLE_SIZE * 2] = {0};
 
   vTaskDelay(pdMS_TO_TICKS(3000));
@@ -212,13 +212,13 @@ void tx_task(void *arg)
 
         printf("Time between messages: %" PRId64 " clock cycles (%.2f ms)\n", timestamp_stop - timestamp_start, ((timestamp_stop - timestamp_start) / (double)cpu_freq_hz) * 1000);
 
-        printf("Sent %u bytes\n", byte_sent);
+        printf("Sent %"PRIu32" bytes\n", byte_sent);
 
         printf("%.2f kbits/s\n", (byte_sent * 8) / ((timestamp_stop - timestamp_start) / (double)cpu_freq_hz) / 1000);
 
         printf("Message timestamps: ");
-        for (int i = 1; i < message_count * 2; i += 2) {
-          printf("%" PRId64 " ", messages_timestamp[i] - messages_timestamp[i - 1]);
+        for (int i = 0; i < message_count; i++) {
+          printf("%" PRId64 " ", messages_timestamp[(i * 2) + 1] - messages_timestamp[i * 2]);
         }
         printf("\n");
       }
