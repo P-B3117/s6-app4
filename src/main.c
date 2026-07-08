@@ -15,12 +15,14 @@
 #include "message.h"
 #include "rmt.h"
 
-typedef struct {
+typedef struct
+{
   char *configString;
   int configInt;
 } taskConfig;
 
-void initTaskConfig(taskConfig *conf, char *str, int num) {
+void initTaskConfig(taskConfig *conf, char *str, int num)
+{
   conf->configString = str;
   conf->configInt = num;
 }
@@ -31,7 +33,8 @@ void initTaskConfig(taskConfig *conf, char *str, int num) {
 QueueHandle_t send_queue;
 QueueHandle_t recv_queue;
 
-void rx_task(void *arg) {
+void rx_task(void *arg)
+{
   SemaphoreHandle_t sem = get_rx_semaphore();
   rmt_symbol_word_t local_symbols[BUFFER_SIZE];
   trame tr;
@@ -42,8 +45,10 @@ void rx_task(void *arg) {
 
   printf("RX: now looping\n");
 
-  for (;;) {
-    if (xSemaphoreTake(sem, portMAX_DELAY) == pdTRUE) {
+  for (;;)
+  {
+    if (xSemaphoreTake(sem, portMAX_DELAY) == pdTRUE)
+    {
 
       get_rx_symbols(local_symbols, BUFFER_SIZE);
       decode_manchester(&local_symbols[decoder_pos], &mm, 0, BUFFER_SIZE);
@@ -61,19 +66,41 @@ void rx_task(void *arg) {
       mm.currentIndex = 0;
       mm.current[0] = 0;
       mm.current[1] = 0;
-      if (mm.bitIndex != 0) {
+      if (mm.bitIndex != 0)
+      {
         mm.bitIndex = 0;
         mm.message[mm.messageIndex] = 0x00;
       }
 
-      if (mm.finished) {
+      if (mm.finished)
+      {
+        trame tramemsg;
+        man_to_trame(&mm, &tramemsg);
+
+        uint16_t receivedcrc = (tramemsg.crc[1] << 8) | tramemsg.crc[0];
+        uint16_t calculatedcrc = crc16(tramemsg.flat_buffer, tramemsg.chargeLength + 4);
+        
+        if (receivedcrc == calculatedcrc)
+        {
+          printf("\n\nRX: received full message with valid CRC\n");
+        }
+        else
+        {
+          printf("\n\nRX: received full message with INVALID CRC\n");
+          printf("Received CRC: 0x%04X, Calculated CRC: 0x%04X\n", receivedcrc, calculatedcrc);
+        }
+      }
+
+      if (mm.finished)
+      {
         printf("\n\nRX: received full message\n");
         print_man_message(&mm);
         man_to_trame(&mm, &tr);
         printf("\n");
         print_trame(&tr);
 
-        while (xQueueSend(recv_queue, &tr, portMAX_DELAY) == pdFALSE) {
+        while (xQueueSend(recv_queue, &tr, portMAX_DELAY) == pdFALSE)
+        {
           vTaskDelay(0);
         }
 
@@ -89,25 +116,31 @@ void rx_task(void *arg) {
   vTaskDelay(0);
 }
 
-void tx_task(void *arg) {
+void tx_task(void *arg)
+{
   uint8_t datastr[89] = {0};
   trame tr;
   init_trame(&tr);
 
   printf("\nTX: now looping\n");
 
-  for (;;) {
+  for (;;)
+  {
 
     int queue_ret = xQueueReceive(send_queue, &tr, portMAX_DELAY);
-    if (queue_ret == pdFALSE) {
+    if (queue_ret == pdFALSE)
+    {
       vTaskDelay(pdMS_TO_TICKS(1000));
       continue;
-    } else {
+    }
+    else
+    {
       trame_to_buffer(&tr, datastr);
       uint16_t size = trame_size(&tr);
 
       printf("sending message: ");
-      for (int j = 0; j < size; j++) {
+      for (int j = 0; j < size; j++)
+      {
         printf("0x%02X ", datastr[j]);
       }
       printf("\n\n");
@@ -119,7 +152,8 @@ void tx_task(void *arg) {
   }
 }
 
-void app_main() {
+void app_main()
+{
   send_queue = xQueueCreate(QUEUE_SIZE, sizeof(trame));
   recv_queue = xQueueCreate(QUEUE_SIZE, sizeof(trame));
 
