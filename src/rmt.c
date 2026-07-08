@@ -26,14 +26,14 @@ static const rmt_rx_channel_config_t rx_cfg = {
     .gpio_num = GPIO_NUM_19,
     .clk_src = RMT_CLK_SRC_DEFAULT,
     .resolution_hz = RESOLUTION,
-    .mem_block_symbols = 64,
+    .mem_block_symbols = 128,
 };
 
 static const rmt_tx_channel_config_t tx_cfg = {
     .gpio_num = GPIO_NUM_23,
     .clk_src = RMT_CLK_SRC_DEFAULT,
     .resolution_hz = RESOLUTION,
-    .mem_block_symbols = 64,
+    .mem_block_symbols = 128,
     .trans_queue_depth = 4,
 };
 
