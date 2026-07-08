@@ -2,12 +2,6 @@
 #include <stdio.h>
 #include <string.h>
 
-// static const uint8_t preambule = 0x55;
-// static const uint8_t start = 0x7E;
-static const uint8_t end = 0x7E;
-// static const uint8_t enteteLength = 4;
-// static const uint8_t crc = 2;
-
 uint8_t print_man_message(man_message *mm) {
   printf("MM:\n  bitIndex: %hhu\n  messageIndex: %hhu\n ", mm->bitIndex,
          mm->messageIndex);
