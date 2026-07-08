@@ -15,6 +15,8 @@
 #include "message.h"
 #include "rmt.h"
 
+#include "xtensa/hal.h"  // timestamp include
+
 typedef struct {
   char *configString;
   int configInt;
@@ -67,17 +69,19 @@ void rx_task(void *arg) {
       }
 
       if (mm.finished) {
-        printf("\n\nRX: received full message\n");
-        print_man_message(&mm);
+        // printf("\n\nRX: received full message\n");
+        // print_man_message(&mm);
+
         man_to_trame(&mm, &tr);
-        printf("\n");
-        print_trame(&tr);
+
+        // printf("\n");
+        // print_trame(&tr);
 
         while (xQueueSend(recv_queue, &tr, portMAX_DELAY) == pdFALSE) {
           vTaskDelay(0);
         }
 
-        printf("\nFlushing and going again\n");
+        // printf("\nFlushing and going again\n");
         init_trame(&tr);
         init_man_message(&mm);
       }
@@ -93,6 +97,13 @@ void tx_task(void *arg) {
   uint8_t datastr[89] = {0};
   trame tr;
   init_trame(&tr);
+  uint64_t timestamp_start = 0;
+  uint64_t timestamp_stop = 0;
+  uint8_t message_count = 0;
+  uint16_t byte_sent = 0;
+  uint64_t messages_timestamp[TRAME_EXAMPLE_SIZE * 2] = {0};
+
+  vTaskDelay(pdMS_TO_TICKS(3000));
 
   printf("\nTX: now looping\n");
 
@@ -103,19 +114,47 @@ void tx_task(void *arg) {
       vTaskDelay(pdMS_TO_TICKS(1000));
       continue;
     } else {
+
+      messages_timestamp[message_count * 2 - 2] = xthal_get_ccount();
+
+      if (message_count == 0) {
+        timestamp_start = xthal_get_ccount();
+      }
+
       trame_to_buffer(&tr, datastr);
       uint16_t size = trame_size(&tr);
+      byte_sent += size;
 
-      printf("sending message: ");
-      for (int j = 0; j < size; j++) {
-        printf("0x%02X ", datastr[j]);
-      }
-      printf("\n\n");
+      // printf("sending message: ");
+      // for (int j = 0; j < size; j++) {
+      //   printf("0x%02X ", datastr[j]);
+      // }
+      // printf("\n\n");
 
       send_msg(datastr, trame_size(&tr));
+      messages_timestamp[message_count * 2 - 1] = xthal_get_ccount();
+      message_count++;
+
+      if (message_count == TRAME_EXAMPLE_SIZE) {
+        timestamp_stop = xthal_get_ccount();
+
+        uint32_t cpu_freq_hz = 240000000;
+
+        printf("Time between messages: %" PRId64 " clock cycles (%.2f ms)\n", timestamp_stop - timestamp_start, ((timestamp_stop - timestamp_start) / (double)cpu_freq_hz) * 1000);
+
+        printf("Sent %u bytes\n", byte_sent);
+
+        printf("%.2f kbits/s\n", (byte_sent * 8) / ((timestamp_stop - timestamp_start) / (double)cpu_freq_hz) / 1000);
+
+        printf("Message timestamps: ");
+        for (int i = 1; i < message_count * 2; i += 2) {
+          printf("%" PRId64 " ", messages_timestamp[i] - messages_timestamp[i - 1]);
+        }
+        printf("\n");
+      }
     }
 
-    vTaskDelay(pdMS_TO_TICKS(100));
+    // vTaskDelay(pdMS_TO_TICKS(100));
   }
 }
 

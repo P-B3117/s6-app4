@@ -64,13 +64,3 @@ void example_task(void *arg) {
     }
 
 }
-
-// MM:
-//   bitIndex: 0
-//   messageIndex: 9
-//    Message[]:
-//      55, 7E, 02, 02, 03, 00, 9B, 52,
-//      7E,
-//   currentIndex: 0
-//   current[]: 0x00, 0x00
-//   finished: false
